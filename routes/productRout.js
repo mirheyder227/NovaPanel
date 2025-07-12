@@ -1,21 +1,21 @@
-// server/routes/productRout.js
 import express from 'express';
 import {
     getAllProducts,
     addProduct,
     updateProduct,
     deleteProduct,
-    getSearchResults ,
+    getSearchResults,
     getSingleProduct
 } from '../controllers/productController.js';
-import upload from '../middleware/upload.js'; 
+import { uploadProduct } from '../controllers/uploadController.js'; // uploadProduct Cloudinary konfiqurasiyası ilə
 
 const router = express.Router();
+
 router.get("/products/:id", getSingleProduct);
 router.get('/products', getAllProducts);
-router.post('/products', upload.single('image'), addProduct);  
-router.put('/products/:id', upload.single('image'), updateProduct);
+router.post('/products', uploadProduct.single('productImage'), addProduct);
+router.put('/products/:id', uploadProduct.single('productImage'), updateProduct);
 router.delete('/products/:id', deleteProduct);
-router.get('/products/search', getSearchResults); 
+router.get('/products/search', getSearchResults);
 
 export default router;

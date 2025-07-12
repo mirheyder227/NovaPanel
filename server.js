@@ -3,7 +3,6 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
-import fs from "fs";
 
 import { initializeDb } from "./database/db.js";
 
@@ -39,27 +38,6 @@ app.use(
     credentials: true,
   })
 );
-
-const UPLOADS_BASE_DIR = path.join(__dirname, "../public/uploads");
-const PRODUCT_IMAGES_DIR = path.join(UPLOADS_BASE_DIR, "products");
-
-[PRODUCT_IMAGES_DIR].forEach((dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    console.log(`✔️ Yükləmə qovluğu yaradıldı: ${dir}`);
-  }
-});
-
-app.use("/uploads", express.static(path.join(__dirname, "../public/uploads")));
-
-app.use("/api/auth", authRoutes);
-app.use("/api", productRoutes);
-app.use("/api/books", bookRoutes);
-app.use("/api/admin", adminRoutes);
-
-app.get("/api/ping", (req, res) => {
-  res.json({ message: "Server işə düşdü!" });
-});
 
 /*
 if (process.env.NODE_ENV === 'production') {
