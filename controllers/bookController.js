@@ -1,4 +1,4 @@
-// server/controllers/bookController.js
+// server/controllers/bookController.js (Dəyişiklik yoxdur, əvvəlki cavabdan)
 import { getDb } from '../database/db.js';
 
 export const getSearchResults = async (req, res) => {
@@ -14,7 +14,6 @@ export const getSearchResults = async (req, res) => {
         );
         res.json(books);
     } catch (error) {
-        console.error('Axtarış xətası:', error);
         res.status(500).json({ message: 'Server xətası' });
     }
 };

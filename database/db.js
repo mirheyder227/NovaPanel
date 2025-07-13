@@ -1,3 +1,5 @@
+
+// server/database/db.js
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import path from 'path';
@@ -33,7 +35,7 @@ export const initializeDb = async () => {
                 description TEXT,
                 category TEXT,
                 imageUrl TEXT,   
-                stock INTEGER DEFAULT 0  
+                stock INTEGER DEFAULT 0   
             );
 
             CREATE TABLE IF NOT EXISTS books (
@@ -65,3 +67,4 @@ export const getDb = () => {
     }
     return db;
 };
+ 

@@ -7,15 +7,36 @@ import {
     getSearchResults,
     getSingleProduct
 } from '../controllers/productController.js';
-import { uploadProduct } from '../controllers/uploadController.js'; // uploadProduct Cloudinary konfiqurasiyası ilə
+import { uploadProduct } from '../middleware/uploadCloudinary.js';
+import { authenticateToken, authorizeRoles } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 router.get("/products/:id", getSingleProduct);
 router.get('/products', getAllProducts);
-router.post('/products', uploadProduct.single('productImage'), addProduct);
-router.put('/products/:id', uploadProduct.single('productImage'), updateProduct);
-router.delete('/products/:id', deleteProduct);
 router.get('/products/search', getSearchResults);
+
+router.post(
+    '/products',
+    authenticateToken,
+    authorizeRoles('admin'),
+    uploadProduct.single('productImage'),
+    addProduct
+);
+
+router.put(
+    '/products/:id',
+    authenticateToken,
+    authorizeRoles('admin'),
+    uploadProduct.single('productImage'),
+    updateProduct
+);
+
+router.delete(
+    '/products/:id',
+    authenticateToken,
+    authorizeRoles('admin'),
+    deleteProduct
+);
 
 export default router;

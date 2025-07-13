@@ -1,4 +1,8 @@
+
+ 
+// server/controllers/productController.js
 import { getDb } from '../database/db.js';
+import { deleteImageFromCloudinary } from '../middleware/uploadCloudinary.js';
 
 export const getAllProducts = async (req, res) => {
     try {
@@ -6,46 +10,44 @@ export const getAllProducts = async (req, res) => {
         const products = await db.all('SELECT * FROM products');
         res.json(products);
     } catch (error) {
-        console.error('Error fetching all products:', error);
         res.status(500).json({ message: 'Server error fetching products' });
     }
 };
 
 export const addProduct = async (req, res) => {
     try {
-        const { name, description, price, category } = req.body;
+        const { name, description, price, category, stock } = req.body;
         const imageUrl = req.file ? req.file.path : null;
 
         if (!name || !price || !category) {
-            return res.status(400).json({ message: 'Product name, price, and category are required.' });
+            return res.status(400).json({ message: 'Məhsul adı, qiymət və kateqoriya tələb olunur.' });
         }
 
         const db = getDb();
         const result = await db.run(
-            'INSERT INTO products (name, description, price, category, imageUrl) VALUES (?, ?, ?, ?, ?)',
-            [name, description, parseFloat(price), category, imageUrl]
+            'INSERT INTO products (name, description, price, category, imageUrl, stock) VALUES (?, ?, ?, ?, ?, ?)',
+            [name, description, parseFloat(price), category, imageUrl, parseInt(stock) || 0]
         );
 
         res.status(201).json({
-            message: 'Product added successfully',
+            message: 'Məhsul uğurla əlavə edildi',
             productId: result.lastID,
-            product: { id: result.lastID, name, description, price, category, imageUrl }
+            product: { id: result.lastID, name, description, price, category, imageUrl, stock: parseInt(stock) || 0 }
         });
     } catch (error) {
-        console.error('Error adding product:', error);
-        res.status(500).json({ message: 'Server error adding product' });
+        res.status(500).json({ message: 'Məhsul əlavə edilərkən server xətası.' });
     }
 };
 
 export const updateProduct = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, description, price, category } = req.body;
+        const { name, description, price, category, stock, clearImage } = req.body;
         const db = getDb();
 
         const existingProduct = await db.get('SELECT imageUrl FROM products WHERE id = ?', [id]);
         if (!existingProduct) {
-            return res.status(404).json({ message: 'Product not found.' });
+            return res.status(404).json({ message: 'Məhsul tapılmadı.' });
         }
 
         let updateFields = [];
@@ -53,10 +55,14 @@ export const updateProduct = async (req, res) => {
         let newImageUrl = existingProduct.imageUrl;
 
         if (req.file) {
+            if (existingProduct.imageUrl) {
+                await deleteImageFromCloudinary(existingProduct.imageUrl);
+            }
             newImageUrl = req.file.path;
-            // Cloudinary-dən köhnə şəkli silmək üçün API çağırışı burada olmalıdır.
-        } else if (req.body.clearImage === 'true') {
-            // Şəkli təmizləmək üçün Cloudinary-dən silmək üçün API çağırışı burada olmalıdır.
+        } else if (clearImage === 'true') {
+            if (existingProduct.imageUrl) {
+                await deleteImageFromCloudinary(existingProduct.imageUrl);
+            }
             newImageUrl = null;
         }
 
@@ -64,12 +70,15 @@ export const updateProduct = async (req, res) => {
         if (description !== undefined) { updateFields.push('description = ?'); updateValues.push(description); }
         if (price !== undefined) { updateFields.push('price = ?'); updateValues.push(parseFloat(price)); }
         if (category !== undefined) { updateFields.push('category = ?'); updateValues.push(category); }
+        if (stock !== undefined) { updateFields.push('stock = ?'); updateValues.push(parseInt(stock)); }
         
-        updateFields.push('imageUrl = ?');
-        updateValues.push(newImageUrl);
+        if (newImageUrl !== existingProduct.imageUrl) {
+            updateFields.push('imageUrl = ?');
+            updateValues.push(newImageUrl);
+        }
 
         if (updateFields.length === 0) {
-            return res.status(400).json({ message: 'No fields provided for update.' });
+            return res.status(400).json({ message: 'Yeniləmə üçün heç bir sahə təmin edilməyib.' });
         }
 
         const query = `UPDATE products SET ${updateFields.join(', ')} WHERE id = ?`;
@@ -78,14 +87,21 @@ export const updateProduct = async (req, res) => {
         const result = await db.run(query, updateValues);
 
         if (result.changes === 0) {
-            return res.status(200).json({ message: 'Product found, but no changes were applied.' });
+            const updatedProduct = await db.get('SELECT * FROM products WHERE id = ?', [id]);
+            return res.status(200).json({ 
+                message: 'Məhsul tapıldı, lakin məlumatlarda dəyişiklik olmadığı üçün yenilənmədi.', 
+                product: updatedProduct 
+            });
         }
 
-        res.status(200).json({ message: 'Product updated successfully', product: { id, name, description, price, category, imageUrl: newImageUrl } });
+        const updatedProduct = await db.get('SELECT * FROM products WHERE id = ?', [id]);
+        res.status(200).json({ 
+            message: 'Məhsul uğurla yeniləndi', 
+            product: updatedProduct 
+        });
 
     } catch (error) {
-        console.error('Error updating product:', error);
-        res.status(500).json({ message: 'Server error updating product.' });
+        res.status(500).json({ message: 'Məhsul yenilənərkən server xətası.' });
     }
 };
 
@@ -95,23 +111,23 @@ export const deleteProduct = async (req, res) => {
         const db = getDb();
 
         const product = await db.get('SELECT imageUrl FROM products WHERE id = ?', [id]);
+        if (!product) {
+            return res.status(404).json({ message: 'Məhsul tapılmadı.' });
+        }
 
         const result = await db.run('DELETE FROM products WHERE id = ?', [id]);
 
         if (result.changes === 0) {
-            return res.status(404).json({ message: 'Product not found.' });
+            return res.status(404).json({ message: 'Məhsul tapılmadı.' });
         }
 
-        // Şəkli Cloudinary-dən silmək üçün API çağırışı burada olmalıdır.
-        // if (product && product.imageUrl) {
-        //     const publicId = extractPublicIdFromUrl(product.imageUrl);
-        //     await cloudinary.uploader.destroy(publicId);
-        // }
+        if (product.imageUrl) {
+            await deleteImageFromCloudinary(product.imageUrl);
+        }
 
-        res.status(200).json({ message: 'Product deleted successfully' });
+        res.status(200).json({ message: 'Məhsul uğurla silindi' });
     } catch (error) {
-        console.error('Error deleting product:', error);
-        res.status(500).json({ message: 'Server error deleting product.' });
+        res.status(500).json({ message: 'Məhsul silinərkən server xətası.' });
     }
 };
 
@@ -122,13 +138,12 @@ export const getSingleProduct = async (req, res) => {
         const product = await db.get('SELECT * FROM products WHERE id = ?', [id]);
 
         if (!product) {
-            return res.status(404).json({ message: 'Product not found.' });
+            return res.status(404).json({ message: 'Məhsul tapılmadı.' });
         }
 
         res.json(product);
     } catch (error) {
-        console.error('Error fetching product:', error);
-        res.status(500).json({ message: 'Server error fetching product.' });
+        res.status(500).json({ message: 'Məhsul çəkilərkən server xətası.' });
     }
 };
 
@@ -142,7 +157,6 @@ export const getSearchResults = async (req, res) => {
         );
         res.json(products);
     } catch (error) {
-        console.error('Error searching products:', error);
-        res.status(500).json({ message: 'Server error searching products.' });
+        res.status(500).json({ message: 'Məhsul axtarılarkən server xətası.' });
     }
 };

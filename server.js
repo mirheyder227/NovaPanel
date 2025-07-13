@@ -1,3 +1,4 @@
+// server/index.js
 import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
@@ -5,10 +6,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import { initializeDb } from "./database/db.js";
-
 import authRoutes from "./routes/auth.js";
-import productRoutes from "./routes/productRout.js";
-import bookRoutes from "./routes/book.js";
+import productRoutes from "./routes/productRout.js"; // Düzgün məhsul rotası
+import bookRoutes from "./routes/book.js"; // Kitab rotası
 import adminRoutes from "./routes/admin.js";
 
 dotenv.config();
@@ -23,7 +23,8 @@ app.use(express.json());
 
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://novastores.netlify.app",
+  "https://novastores.netlify.app", // Netlify deploy URL-niz
+  "https://novastores.onrender.com", // Render deploy URL-niz (əgər React-i Render-də deploy etmisinizsə)
 ];
 
 app.use(
@@ -32,13 +33,14 @@ app.use(
       if (!origin || allowedOrigins.indexOf(origin) !== -1) {
         callback(null, true);
       } else {
-        callback(new Error('CORS siyasəti tərəfindən icazə verilməyən domen!'));
+        callback(new Error('CORS siyasəti tərəfindən icazə verilməyən domen! ' + origin));
       }
     },
     credentials: true,
   })
 );
 
+// Əgər frontend build-i eyni serverdə serve edilirsə, bu hissəni aktiv edin
 /*
 if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, '..', 'client', 'build')));
@@ -48,11 +50,17 @@ if (process.env.NODE_ENV === 'production') {
 }
 */
 
+// API Marşrutları
+app.use("/api/auth", authRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/books", bookRoutes); // Kitab rotasını əlavə edin
+app.use("/api/admin", adminRoutes);
+
 const startServer = async () => {
   try {
     await initializeDb();
     app.listen(PORT, () => {
-      console.log(`🚀 Server http://localhost:${PORT}`);
+      console.log(`🚀 Server ${process.env.NODE_ENV === 'production' ? 'işləyir' : `http://localhost:${PORT}`}`);
     });
   } catch (error) {
     console.error("❌ Server başlanarkən kritik xəta:", error);
@@ -61,3 +69,4 @@ const startServer = async () => {
 };
 
 startServer();
+ 
