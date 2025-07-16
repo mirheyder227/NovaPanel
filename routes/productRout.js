@@ -1,39 +1,46 @@
+// server/routes/productRout.js
 import express from 'express';
+import { getDb } from '../database/db.js';
+import { authenticateToken, authorizeRoles } from '../middleware/authMiddleware.js';
 import {
     getAllProducts,
     addProduct,
     updateProduct,
     deleteProduct,
-    getSearchResults,
-    getSingleProduct
-} from '../controllers/productController.js';
-import { uploadProduct } from '../middleware/uploadCloudinary.js';
-import { authenticateToken, authorizeRoles } from '../middleware/authMiddleware.js';
+    getSingleProduct,
+    getSearchResults // Məhsul axtarışı controllerini import edirik
+} from '../controllers/productController.js'; // Bütün controller funksiyalarını import edirik
 
 const router = express.Router();
 
-router.get("/products/:id", getSingleProduct);
-router.get('/products', getAllProducts);
-router.get('/products/search', getSearchResults);
+// Məhsul axtarışı marşrutu - DİQQƏT: Bu marşrut digər '/:id' marşrutlarından əvvəl gəlməlidir!
+router.get('/search', getSearchResults); 
 
+// Bütün məhsulları gətir
+router.get('/', getAllProducts);
+
+// Yeni məhsul əlavə et (yalnız admin)
 router.post(
-    '/products',
+    '/',
     authenticateToken,
     authorizeRoles('admin'),
-    uploadProduct.single('productImage'),
     addProduct
 );
 
+// Məhsulu ID-yə görə gətir
+router.get('/:id', getSingleProduct);
+
+// Məhsulu yenilə (yalnız admin)
 router.put(
-    '/products/:id',
+    '/:id',
     authenticateToken,
     authorizeRoles('admin'),
-    uploadProduct.single('productImage'),
     updateProduct
 );
 
+// Məhsulu sil (yalnız admin)
 router.delete(
-    '/products/:id',
+    '/:id',
     authenticateToken,
     authorizeRoles('admin'),
     deleteProduct

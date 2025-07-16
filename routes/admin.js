@@ -1,3 +1,5 @@
+
+
 // server/routes/admin.js
 import express from 'express';
 import { getDashboardStats, getRecentActivities } from '../controllers/adminController.js';

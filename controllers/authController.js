@@ -1,5 +1,4 @@
 
- 
 // server/controllers/authController.js
 import { getDb } from '../database/db.js';
 import bcrypt from 'bcryptjs';
@@ -7,47 +6,63 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || 'mySecretKey';
+const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
+
+if (!ACCESS_TOKEN_SECRET) {
+    console.error('Kritik Xəta: ACCESS_TOKEN_SECRET mühit dəyişənlərində təyin edilməyib.');
+    // process.exit(1); // İstehsal mühitində prosesi dayandırmağı düşünün
+}
 
 export const signup = async (req, res) => {
-  const { email, password } = req.body;
+    const { email, password, username } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email və şifrə tələb olunur.' });
-  }
-
-  try {
-    const db = getDb();
-    const existingUser = await db.get('SELECT id FROM users WHERE email = ?', [email]);
-    if (existingUser) {
-      return res.status(409).json({ message: 'Bu email artıq mövcuddur.' });
+    if (!email || !password || !username) {
+        return res.status(400).json({ message: 'Email, istifadəçi adı və şifrə sahələri tələb olunur.' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const result = await db.run(
-      'INSERT INTO users (email, password, role) VALUES (?, ?, ?)',
-      [email, hashedPassword, 'user']
-    );
+    try {
+        const db = getDb();
+        
+        const existingUserByEmail = await db.get('SELECT id FROM users WHERE email = ?', [email]);
+        if (existingUserByEmail) {
+            return res.status(409).json({ message: 'Bu email artıq qeydiyyatdan keçib.' });
+        }
 
-    const token = jwt.sign(
-      { userId: result.lastID, email, role: 'user' },
-      ACCESS_TOKEN_SECRET,
-      { expiresIn: '500h' }
-    );
+        const existingUserByUsername = await db.get('SELECT id FROM users WHERE username = ?', [username]);
+        if (existingUserByUsername) {
+            return res.status(409).json({ message: 'Bu istifadəçi adı artıq mövcuddur.' });
+        }
 
-    res.status(201).json({
-      message: 'İstifadəçi qeydiyyatdan keçdi!',
-      token,
-      user: { id: result.lastID, email, role: 'user' }
-    });
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const result = await db.run(
+            'INSERT INTO users (email, username, password, role) VALUES (?, ?, ?, ?)',
+            [email, username, hashedPassword, 'user']
+        );
 
-  } catch (error) {
-    res.status(500).json({ message: 'Server xətası' });
-  }
+        const token = jwt.sign(
+            { userId: result.lastID, email, username, role: 'user' },
+            ACCESS_TOKEN_SECRET,
+            { expiresIn: '12h' } // Təhlükəsizlik üçün daha qısa müddət
+        );
+
+        res.status(201).json({
+            message: 'Qeydiyyat uğurla tamamlandı!',
+            token,
+            user: { id: result.lastID, email, username, role: 'user' }
+        });
+
+    } catch (error) {
+        console.error('Qeydiyyat xətası:', error);
+        res.status(500).json({ message: 'Qeydiyyat zamanı server xətası baş verdi.' });
+    }
 };
 
 export const login = async (req, res) => {
     const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ message: 'Email və şifrə sahələri tələb olunur.' });
+    }
 
     try {
         const db = getDb();
@@ -65,21 +80,23 @@ export const login = async (req, res) => {
         const userRole = user.role || 'user';
 
         const token = jwt.sign(
-            { userId: user.id, email: user.email, role: userRole },
+            { userId: user.id, email: user.email, username: user.username, role: userRole },
             ACCESS_TOKEN_SECRET,
-            { expiresIn: '500h' }
+            { expiresIn: '12h' }
         );
 
         res.json({
+            message: 'Daxil olundu!',
             token,
-            user: { id: user.id, email: user.email, role: userRole },
+            user: { id: user.id, email: user.email, username: user.username, role: userRole },
         });
 
     } catch (error) {
-        res.status(500).json({ message: 'Server xətası' });
+        console.error('Daxil olma xətası:', error);
+        res.status(500).json({ message: 'Daxil olarkən server xətası baş verdi.' });
     }
 };
 
 export const logout = (req, res) => {
-    res.json({ message: 'Çıxış edildi. Token frontend-dən silinməlidir.' });
+    res.json({ message: 'Uğurla çıxış edildi. Token client tərəfindən silinməlidir.' });
 };

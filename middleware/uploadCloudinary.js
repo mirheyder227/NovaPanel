@@ -1,3 +1,4 @@
+
 // server/middleware/uploadCloudinary.js
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
@@ -12,12 +13,16 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
+if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+    console.warn('Cloudinary etimadnamələri tam qurulmayıb. Şəkil yükləmələri/silinmələri uğursuz ola bilər.');
+}
+
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
     params: {
         folder: 'novastores_products',
         format: async (req, file) => 'webp',
-        public_id: (req, file) => `product-${Date.now()}-${file.originalname.split('.')[0].replace(/[^a-zA-Z0-9-]/g, '')}`,
+        public_id: (req, file) => `product-${Date.now()}-${file.originalname.split('.')[0].replace(/[^a-zA-Z0-9-_]/g, '')}`,
         resource_type: 'auto'
     },
 });
@@ -25,21 +30,26 @@ const storage = new CloudinaryStorage({
 export const uploadProduct = multer({ storage: storage });
 
 export const deleteImageFromCloudinary = async (imageUrl) => {
-  if (!imageUrl) return;
+    if (!imageUrl) {
+        console.warn('Boş imageUrl ilə Cloudinary-dən şəkil silməyə cəhd edildi.');
+        return;
+    }
 
-  // Extract public ID from Cloudinary URL
-  // Example URL: https://res.cloudinary.com/your_cloud_name/image/upload/v1234567890/novastores_products/product-1234567890-imagename.webp
-  // publicId will be 'product-1234567890-imagename'
-  const parts = imageUrl.split('/');
-  const publicIdWithExtension = parts[parts.length - 1]; // e.g., 'product-1234567890-imagename.webp'
-  const publicId = publicIdWithExtension.split('.')[0]; // e.g., 'product-1234567890-imagename'
+    const parts = imageUrl.split('/');
+    const publicIdWithExtension = parts[parts.length - 1];
+    const publicIdWithoutExtension = publicIdWithExtension.split('.')[0]; 
+    const folder = 'novastores_products'; 
 
-  const folder = 'novastores_products'; 
+    const fullPublicId = `${folder}/${publicIdWithoutExtension}`;
 
-  try {
-     await cloudinary.uploader.destroy(`${folder}/${publicId}`);
-    console.log(`Cloudinary-dən uğurla silindi: ${folder}/${publicId}`);
-  } catch (error) {
-    console.error(`Cloudinary-dən şəkil silinərkən xəta: ${folder}/${publicId}`, error);
-  }
+    try {
+        const result = await cloudinary.uploader.destroy(fullPublicId);
+        if (result.result === 'ok') {
+            console.log(`Cloudinary-dən uğurla silindi: ${fullPublicId}`);
+        } else {
+            console.warn(`Cloudinary-dən şəkil silinərkən xəta (nəticə: ${result.result}): ${fullPublicId}`);
+        }
+    } catch (error) {
+        console.error(`Cloudinary-dən şəkil silinərkən xəta: ${fullPublicId}`, error);
+    }
 };
