@@ -1,4 +1,3 @@
-
 // server/controllers/adminController.js
 import { getDb } from '../database/db.js';
 
@@ -12,7 +11,10 @@ export const getDashboardStats = async (req, res) => {
         const productsCountResult = await db.get('SELECT COUNT(*) as count FROM products');
         const productsCount = productsCountResult ? productsCountResult.count : 0;
 
-        const pendingOrdersCount = 0; // Bu hissəni sifarişlər cədvəlindən məlumat çəkərək doldurmalısınız
+        // Bu hissəni sifarişlər cədvəlindən məlumat çəkərək doldurmalısınız
+        // Gözləyən (pending) sifarişlərin sayını çəkin
+        const pendingOrdersCountResult = await db.get("SELECT COUNT(*) as count FROM orders WHERE status = 'pending'");
+        const pendingOrdersCount = pendingOrdersCountResult ? pendingOrdersCountResult.count : 0;
 
         res.json({ usersCount, productsCount, pendingOrdersCount });
     } catch (error) {

@@ -1,4 +1,3 @@
-
 // server/database/db.js
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
@@ -37,6 +36,17 @@ export const initializeDb = async () => {
                 category TEXT,
                 imageUrl TEXT,  
                 stock INTEGER DEFAULT 0  
+            );
+
+            CREATE TABLE IF NOT EXISTS orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                userId INTEGER NOT NULL,
+                productId INTEGER NOT NULL,
+                quantity INTEGER NOT NULL,
+                orderDate TEXT DEFAULT CURRENT_TIMESTAMP,
+                status TEXT DEFAULT 'pending', -- 'pending', 'completed', 'cancelled'
+                FOREIGN KEY (userId) REFERENCES users(id),
+                FOREIGN KEY (productId) REFERENCES products(id)
             );
 
             CREATE TABLE IF NOT EXISTS books (
